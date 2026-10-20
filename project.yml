@@ -1,0 +1,56 @@
+name: TextCove
+options:
+  bundleIdPrefix: com.textcove
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  xcodeVersion: "1620"
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+packages:
+  CodeEditLanguages:
+    url: https://github.com/CodeEditApp/CodeEditLanguages.git
+    exactVersion: 0.1.21
+  SwiftTreeSitter:
+    url: https://github.com/ChimeHQ/SwiftTreeSitter.git
+    exactVersion: 0.9.0
+targets:
+  TextCove:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: TextCove
+        excludes:
+          - "Resources/**"
+      - path: TextCove/Resources
+        buildPhase: resources
+    dependencies:
+      - package: CodeEditLanguages
+      - package: SwiftTreeSitter
+    settings:
+      base:
+        PRODUCT_NAME: TextCove
+        PRODUCT_BUNDLE_IDENTIFIER: com.textcove.TextCove
+        INFOPLIST_FILE: Config/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        MARKETING_VERSION: 1.4.0
+        CURRENT_PROJECT_VERSION: 8
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        COMBINE_HIDPI_IMAGES: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
+    scheme:
+      gatherCoverageData: false
+      environmentVariables:
+        OS_ACTIVITY_MODE:
+          value: disable
+          isEnabled: false
