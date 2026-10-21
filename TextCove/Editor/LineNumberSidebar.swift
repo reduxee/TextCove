@@ -32,6 +32,8 @@ final class LineNumberSidebarNSView: NSView {
     private weak var editorScrollView: NSScrollView?
     private var lineStartOffsets: [Int] = [0]
     private var observers: [NSObjectProtocol] = []
+    private var pendingReload: DispatchWorkItem?
+    private var scanGeneration = 0
 
     private let numberFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
     private let trailingPadding: CGFloat = 10
@@ -181,7 +183,7 @@ final class LineNumberSidebarNSView: NSView {
                     object: textView,
                     queue: queue
                 ) { [weak self] _ in
-                    self?.reloadLineNumbers()
+                    self?.scheduleReload()
                 }
             )
             observers.append(
@@ -208,7 +210,19 @@ final class LineNumberSidebarNSView: NSView {
         }
     }
 
+    /// 全文行首扫描在 20 万行文件上约 80ms；击键时防抖，避免每个字符都扫一遍。
+    private func scheduleReload() {
+        pendingReload?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.reloadLineNumbers()
+        }
+        pendingReload = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+    }
+
     private func removeObservers() {
+        pendingReload?.cancel()
+        pendingReload = nil
         for observer in observers {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -217,36 +231,56 @@ final class LineNumberSidebarNSView: NSView {
 
     private func reloadLineNumbers() {
         guard let textView else {
+            scanGeneration += 1
             lineStartOffsets = [0]
             needsDisplay = true
             return
         }
 
-        let text = textView.string as NSString
-        var starts = [0]
-        var index = 0
-
-        while index < text.length {
-            var lineStart = 0
-            var lineEnd = 0
-            var contentsEnd = 0
-            text.getLineStart(
-                &lineStart,
-                end: &lineEnd,
-                contentsEnd: &contentsEnd,
-                for: NSRange(location: index, length: 0)
-            )
-
-            guard lineEnd > index else { break }
-            index = lineEnd
-
-            if index < text.length || contentsEnd < lineEnd {
-                starts.append(index)
-            }
+        // 20 万行的全文扫描约 80ms，放后台做；先在主线程把 UTF-16 缓冲复制出来，
+        // 后台扫描就完全不会再触碰正在编辑的文本存储。
+        let nsText = textView.string as NSString
+        let length = nsText.length
+        var buffer = [unichar](repeating: 0, count: length)
+        if length > 0 {
+            nsText.getCharacters(&buffer, range: NSRange(location: 0, length: length))
         }
 
-        lineStartOffsets = starts
-        needsDisplay = true
+        scanGeneration += 1
+        let generation = scanGeneration
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var starts = [0]
+            starts.reserveCapacity(max(1, length / 40))
+            var index = 0
+
+            while index < length {
+                var breakLength = 0
+                switch buffer[index] {
+                case 0x000D:
+                    breakLength = index + 1 < length && buffer[index + 1] == 0x000A ? 2 : 1
+                case 0x000A, 0x0085, 0x2028, 0x2029:
+                    breakLength = 1
+                default:
+                    breakLength = 0
+                }
+
+                if breakLength > 0 {
+                    index += breakLength
+                    starts.append(index)
+                } else {
+                    index += 1
+                }
+            }
+
+            DispatchQueue.main.async {
+                guard let self,
+                      self.scanGeneration == generation,
+                      self.textView?.textStorage?.length == length else { return }
+                self.lineStartOffsets = starts
+                self.needsDisplay = true
+            }
+        }
     }
 
     private func lineFragmentRect(

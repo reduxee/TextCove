@@ -45,7 +45,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "OS_ACTIVITY_MODE"
-            value = "[&quot;isEnabled&quot;: false, &quot;value&quot;: &quot;disable&quot;]"
+            value = "[&quot;value&quot;: &quot;disable&quot;, &quot;isEnabled&quot;: false]"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
@@ -75,7 +75,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "OS_ACTIVITY_MODE"
-            value = "[&quot;isEnabled&quot;: false, &quot;value&quot;: &quot;disable&quot;]"
+            value = "[&quot;value&quot;: &quot;disable&quot;, &quot;isEnabled&quot;: false]"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
@@ -101,7 +101,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "OS_ACTIVITY_MODE"
-            value = "[&quot;isEnabled&quot;: false, &quot;value&quot;: &quot;disable&quot;]"
+            value = "[&quot;value&quot;: &quot;disable&quot;, &quot;isEnabled&quot;: false]"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

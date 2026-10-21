@@ -14,6 +14,9 @@ struct DocumentContainerView: View {
             if document.encodingLabel != "UTF-8" {
                 encodingNotice
             }
+            if document.isLongLineHeavy {
+                longLineNotice
+            }
 
             contentCard
         }
@@ -73,12 +76,43 @@ struct DocumentContainerView: View {
 
     private var editorView: some View {
         CodeEditorPane(
-            text: $document.text,
+            text: editorText,
             fileURL: document.fileURL,
             colorScheme: colorScheme,
-            showsLineNumbers: document.kind.showsLineNumbers,
+            showsLineNumbers: document.kind.showsLineNumbers && !document.showsWrappedPreview,
+            isEditable: !document.showsWrappedPreview,
+            wrapsLines: !document.isLongLineHeavy || document.showsWrappedPreview,
+            externalEditToken: document.externalEditToken,
             onOpenFiles: onOpenFiles
         )
+        .id("\(document.id)-\(document.prefersEditingLongLineFile)")
+    }
+
+    private var editorText: Binding<String> {
+        document.showsWrappedPreview ? .constant(document.wrappedPreview) : $document.text
+    }
+
+    private var longLineNotice: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle")
+
+            if document.showsWrappedPreview {
+                Text("该文件含超长行（最长 \(document.longestLineLength.formatted()) 字符），已用只读折行预览打开。")
+            } else {
+                Text("已关闭自动换行并以可编辑方式打开超长行文件，大范围操作可能变慢。")
+            }
+
+            Spacer()
+
+            Button(document.showsWrappedPreview ? "编辑原文件" : "回到只读预览") {
+                document.prefersEditingLongLineFile.toggle()
+            }
+            .buttonStyle(.link)
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
     }
 
     private var markdownModeControl: some View {

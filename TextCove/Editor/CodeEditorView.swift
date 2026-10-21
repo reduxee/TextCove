@@ -6,6 +6,9 @@ struct CodeEditorView: NSViewRepresentable {
     let fileURL: URL
     let colorScheme: ColorScheme
     let viewport: EditorViewport
+    let isEditable: Bool
+    let wrapsLines: Bool
+    let externalEditToken: Int
     let onOpenFiles: ([URL]) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -20,7 +23,7 @@ struct CodeEditorView: NSViewRepresentable {
         scrollView.contentView.drawsBackground = true
         scrollView.contentView.backgroundColor = theme.background
         scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
+        scrollView.hasHorizontalScroller = !wrapsLines
         scrollView.autohidesScrollers = true
         scrollView.scrollerStyle = .overlay
         scrollView.borderType = .noBorder
@@ -36,7 +39,13 @@ struct CodeEditorView: NSViewRepresentable {
                 height: CGFloat.greatestFiniteMagnitude
             )
         )
-        textContainer.widthTracksTextView = true
+        textContainer.widthTracksTextView = wrapsLines
+        if !wrapsLines {
+            textContainer.containerSize = NSSize(
+                width: CGFloat.greatestFiniteMagnitude,
+                height: CGFloat.greatestFiniteMagnitude
+            )
+        }
         textContainer.lineFragmentPadding = 0
         layoutManager.addTextContainer(textContainer)
 
@@ -47,12 +56,14 @@ struct CodeEditorView: NSViewRepresentable {
             height: CGFloat.greatestFiniteMagnitude
         )
         textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
-        textView.autoresizingMask = [NSView.AutoresizingMask.width]
+        textView.isHorizontallyResizable = !wrapsLines
+        textView.autoresizingMask = wrapsLines
+            ? [NSView.AutoresizingMask.width]
+            : [NSView.AutoresizingMask.width, NSView.AutoresizingMask.height]
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
-        textView.isEditable = true
+        textView.isEditable = isEditable
         textView.isSelectable = true
         textView.drawsBackground = true
         textView.textContainerInset = NSSize(width: 18, height: 14)
@@ -99,6 +110,7 @@ struct CodeEditorView: NSViewRepresentable {
 
         private var lastColorScheme: ColorScheme
         private var lastFileURL: URL
+        private var lastExternalEditToken: Int
         private var pendingHighlightWorkItem: DispatchWorkItem?
         private var highlightGeneration = 0
         private var isApplyingExternalUpdate = false
@@ -107,6 +119,7 @@ struct CodeEditorView: NSViewRepresentable {
             self.parent = parent
             self.lastColorScheme = parent.colorScheme
             self.lastFileURL = parent.fileURL
+            self.lastExternalEditToken = parent.externalEditToken
             super.init()
         }
 
@@ -126,6 +139,7 @@ struct CodeEditorView: NSViewRepresentable {
             textView.string = initialText
             textView.setSelectedRange(NSRange(location: 0, length: 0))
             applyTheme(theme, to: textView)
+            lastExternalEditToken = parent.externalEditToken
             textView.onFileDrop = { [weak self] urls in
                 guard let self else { return false }
                 self.parent.onOpenFiles(urls)
@@ -155,7 +169,8 @@ struct CodeEditorView: NSViewRepresentable {
                 scheduleHighlight(after: 0)
             }
 
-            if !textView.hasMarkedText(), textView.string != parent.text {
+            if parent.externalEditToken != lastExternalEditToken, !textView.hasMarkedText() {
+                lastExternalEditToken = parent.externalEditToken
                 replaceText(with: parent.text, in: textView)
                 scheduleHighlight(after: 0)
             }
@@ -194,6 +209,7 @@ struct CodeEditorView: NSViewRepresentable {
         }
 
         private func apply(tokens: [HighlightToken], to textView: NSTextView) {
+            guard !tokens.isEmpty else { return }
             guard !textView.hasMarkedText() else {
                 scheduleHighlight(after: 0.2)
                 return
@@ -272,6 +288,7 @@ struct CodeEditorView: NSViewRepresentable {
 
             guard let textView else { return }
             let snapshot = textView.string
+            let snapshotLength = textView.textStorage?.length ?? 0
             let fileURL = parent.fileURL
 
             let workItem = DispatchWorkItem { [weak self] in
@@ -281,10 +298,11 @@ struct CodeEditorView: NSViewRepresentable {
                     text: snapshot,
                     fileURL: fileURL
                 ) { [weak self] tokens in
+                    // 只比较长度：整串比较桥接字符串会走 NFC 归一化，9MB 要数百毫秒。
                     guard let self,
                           self.highlightGeneration == generation,
                           let textView = self.textView,
-                          textView.string == snapshot else {
+                          textView.textStorage?.length == snapshotLength else {
                         return
                     }
                     self.apply(tokens: tokens, to: textView)

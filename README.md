@@ -11,7 +11,9 @@ TextCove 是一款使用 SwiftUI 编写的 macOS 原生多标签文件查看与�
 - 自定义白底 App 图标：深色文档轮廓 + 两条文本线 + 蓝色 Cove 曲线。
 - 原生工具栏：打开文件、保存、格式化；1.2 版新增编辑器行号、预览代码块行号与任意文本打开。
 - 1.2.2 修复了行号导致编辑器正文不可见的问题：行号改为 SwiftUI 外层的独立侧栏，不再向 NSScrollView 内注入任何行号视图。
+- 1.4.1 性能：修复打开 / 关闭大文件（如 8.7 MB、20 万行）时的秒级卡顿。根因是拿 `NSTextView.string` 的桥接字符串做整串比较，一次约 650 ms；改为版本号 / token / 长度等 O(1) 判据后，打开从约 2.6 s 降到约 0.5 s、关闭约 1 ms。超长行文件（压缩产物）自动改为只读折行预览，行号扫描移到后台。
 - 1.4.0 界面调整：去掉 Tab 栏下方的分隔线，正文收进 10pt 连续曲率的圆角卡片，Markdown 的编辑 / 预览切换改为右下角毛玻璃悬浮图标。
+- 1.4.1 性能修复：窗口打开、关闭、输入都不再对整份文档做字符串比较；行号扫描改为后台 + 防抖；超长行（>5 万字符）自动只读折行预览。
 - 1.3.1 修复：非 Markdown 文件打开时，行号侧栏会把上方 Tab 栏刷成背景色导致标签“消失”。侧栏不再填充 `dirtyRect`，背景改由外层容器提供。
 - 1.3 版扩展语言与文本覆盖：Vue 单文件组件高亮、34 种 tree-sitter 语言的类型识别与图标、XML/plist/diff/nginx/GraphQL/.gitignore/.env 内置正则高亮、shebang 与 modeline 语言检测、非 UTF-8（GBK / Windows-1252 / ISO-8859-1 / UTF-16 / UTF-32）文件可打开并按原编码保存。
 - 多 Tab：独立关闭、自定义滚动 Tab 栏、未保存星号标记。
@@ -28,9 +30,9 @@ TextCove 是一款使用 SwiftUI 编写的 macOS 原生多标签文件查看与�
 
 已经生成可直接使用的产物：
 
-- `dist/TextCove.app`：1.4.0 Release 版应用，已进行本机 ad-hoc 签名，通用二进制（arm64 + x86_64）。
-- `dist/TextCove-1.4.0-macOS.zip`：约 18 MB。
-- `dist/TextCove-1.4.0-macOS.dmg`：约 24 MB 的安装镜像。
+- `dist/TextCove.app`：1.4.1 Release 版应用，已进行本机 ad-hoc 签名，通用二进制（arm64 + x86_64）。
+- `dist/TextCove-1.4.1-macOS.zip`：约 19 MB。
+- `dist/TextCove-1.4.1-macOS.dmg`：约 24 MB 的安装镜像。
 
 在自己电脑上使用只需：
 
@@ -38,7 +40,7 @@ TextCove 是一款使用 SwiftUI 编写的 macOS 原生多标签文件查看与�
 2. 将 `TextCove.app` 拖到“应用程序”文件夹。
 3. 双击打开。由于没有 Apple Developer ID 证书，这是用于本机自用的 ad-hoc 签名版本，不需要也不应提交 App Store。
 
-之前安装过旧版的话，先退出旧版，再用 1.4.0 覆盖 `/Applications/TextCove.app`。1.3.x 新增了 Vue、更多语言与文档类型声明，并修复了非 Markdown 文件打开时 Tab 栏不显示的问题，需要重新安装、并让 LaunchServices 重新登记后才会生效：
+之前安装过旧版的话，先退出旧版，再用 1.4.1 覆盖 `/Applications/TextCove.app`。1.3.x 新增了 Vue、更多语言与文档类型声明，并修复了非 Markdown 文件打开时 Tab 栏不显示的问题，需要重新安装、并让 LaunchServices 重新登记后才会生效：
 
 ```bash
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister \
@@ -127,7 +129,7 @@ xcodebuild \
    - `ENABLE_APP_SANDBOX = NO`
    - `PRODUCT_BUNDLE_IDENTIFIER = com.textcove.TextCove`
    - `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`
-   - `MARKETING_VERSION = 1.4.0`
+   - `MARKETING_VERSION = 1.4.1`
 8. 在 `Info.plist` 中加入 `CFBundleDocumentTypes`，声明常用代码、plist 及通用文本的 UTI 与扩展名，并加入 `AppDelegate` 的 `application(_:open:)` 处理。
 9. 运行工程。最小窗口限制由 `ContentView` 的 `frame(minWidth:minHeight:)` 配合 `.windowResizability(.contentMinSize)` 实现。
 
@@ -175,8 +177,8 @@ TextCove/
 │       └── xcshareddata/swiftpm/Package.resolved
 ├── dist/
 │   ├── TextCove.app
-│   ├── TextCove-1.4.0-macOS.zip
-│   └── TextCove-1.4.0-macOS.dmg
+│   ├── TextCove-1.4.1-macOS.zip
+│   └── TextCove-1.4.1-macOS.dmg
 ├── Config/
 │   └── Info.plist
 └── TextCove/
@@ -318,13 +320,16 @@ TextCove/
 16. **投影必须逐位等长**：隐藏区只能替换成空格并保留换行。改成删除字符或替换成变长内容都会让 capture 的 UTF-16 偏移指到错误位置，症状是“高亮整体错位一段”。
 17. **正则高亮的优先级语义与 tree-sitter 相反**：tree-sitter 路径依赖“后写覆盖”，让更内层、更具体的 capture 胜出；正则路径是“先占位者胜”，因此规则声明顺序本身就是优先级，注释 / CDATA / `<key>` 这类规则必须写在通用标签规则之前。
 18. **SF Symbols 可用性**：`rust`、`chevron.left.forwardslash.php` 在本机解析为 `nil`（图标位置空白但不崩溃），已改用 `r.square.fill` 与 `elephant`。新增语言图标时建议先用 `NSImage(systemSymbolName:accessibilityDescription:)` 批量校验一遍。
-19. **自定义 NSView 不要填满 `dirtyRect`**：`NSViewRepresentable` 交回裸 `NSView` 的脏区可能大于该视图自身的帧，`dirtyRect.fill()` 会把兄弟 SwiftUI 视图（如 Tab 栏）一起刷成背景色，表现为“打开代码文件时标签栏消失、切到 Markdown 又回来”。侧栏只画数字和分隔线，并用 `dirtyRect.intersection(bounds)` 裁剪；背景交给外层 `.background`。同一棵视图树里换成 `NSScrollView` 承载则不会出现该问题。
+19. **不要比较整份文档字符串**：`NSTextView.string` 返回 UTF-16 桥接串，与原生 UTF-8 `String` 比较会走 NFC 归一化；8.7 MB 一次约 650 ms。`isDirty`、视图同步、高亮回调一律用版本号 / token / 长度这类 O(1) 判据，`isDirty` 用 `revision != savedRevision`。
+20. **超长行是 TextKit 1 的死穴**：单行 9 MB 首次排版 2.6 s，宽度变化还会再触发 2.7 s 重排；超过 5 万字符的行改为只读折行预览（每 160 字符硬换行），首屏降到约 20 ms，可手动切回可编辑（关闭自动换行）。
+21. **行号扫描成本**：20 万行约 80 ms。已在编辑时防抖 150 ms，并在主线程复制 UTF-16 缓冲后放到后台扫描，后台不触碰 NSTextStorage。
+22. **自定义 NSView 不要填满 `dirtyRect`**：`NSViewRepresentable` 交回裸 `NSView` 的脏区可能大于该视图自身的帧，`dirtyRect.fill()` 会把兄弟 SwiftUI 视图（如 Tab 栏）一起刷成背景色，表现为“打开代码文件时标签栏消失、切到 Markdown 又回来”。侧栏只画数字和分隔线，并用 `dirtyRect.intersection(bounds)` 裁剪；背景交给外层 `.background`。同一棵视图树里换成 `NSScrollView` 承载则不会出现该问题。
 20. **Vue 与正则的开销**：`.vue` 每次重算需要 `1 + 区块数` 次全量解析，正则路径每个规则一次全文扫描，因此沿用与 tree-sitter 相同的 1,000,000 UTF-16 上限；超出后统一退化为纯文本。
 
 ## 验证记录
 
 - 使用相同版本依赖完成 Debug 与 Release 构建（Xcode 27.1，arm64）。
-- Release 产物已接入白底 AppIcon，完成 ad-hoc 签名与启动验证；已生成 1.4.0 的 zip 与 DMG。
+- Release 产物已接入白底 AppIcon，完成 ad-hoc 签名与启动验证；已生成 1.4.1 的 zip 与 DMG。
 - 已通过 LaunchServices 端到端验证：向测试包发送 `readme.md` 打开事件后，应用成功创建并显示对应 Tab。
 - 已在系统 LaunchServices 中看到 TextCove 注册的 Markdown、JS、TS、HTML、CSS、Java、C、Swift、YAML、JSON、plist 与通用文本类型。
 - tree-sitter 探针覆盖 md/js/html/css/java/yml/json；C、Swift、TypeScript 通过文件 URL 自动匹配 grammar。新增 `.ts`、`.plist`、`.txt` 已在验证工程中成功打开并显示行号。
@@ -343,6 +348,13 @@ TextCove/
 - 编码回退：37 字节的 GBK 文本解码为 21 个 UTF-16 单位，回写仍是 GBK；UTF-16/UTF-32 通过 BOM 分支识别。
 - 离屏渲染 10 个样本（Vue、XML、plist、diff、nginx、GraphQL、.gitignore、.env、python、shell）确认代码正文与行号同时可见、颜色符合预期。
 - Release 通用二进制（arm64 + x86_64）构建成功；ad-hoc 签名后用 `open -n -a` 同时打开 `App.vue` 与 `schema.graphql`，进程稳定存活；已 `lsregister -f` 重新登记 15 组文档类型。
+### 1.4.1 大文件性能验证
+
+- 真实 `ContentView` + 真实窗口，打开 `node_modules/typescript/lib/typescript.js`（8.72 MB / 201,040 行）：打开 → 首次可交互 **0.5 s**（修复前主线程出现 714 + 823 + 1115 ms 三次卡顿），关闭 **约 1 ms**，期间无 >100 ms 的主线程停顿。
+- 单行 8.6 MB 压缩产物：自动进入只读折行预览，0.8 s 可交互、无卡顿；「编辑原文件」可切回可编辑（关闭自动换行）。
+- 小文件回归：仍可编辑、保存按钮与 `*` 标记正常、行号与语法高亮正常。
+- 采样确认根因：`_stringCompareSlow` → `Unicode._NFCNormalizer`，调用点分别是 `isDirty`、视图文本同步与高亮回调的 `textView.string == snapshot`。
+
 ### 1.4.0 界面改版验证
 
 - 真实 `NSWindow` + unified 工具栏下渲染 `ContentView` 截图核对四种状态：Markdown 预览（浅色）、Markdown 编辑（浅色）、代码文件（深色）、Markdown 预览（深色）。Tab 栏下方无分隔线，正文为圆角卡片，右下角悬浮胶囊的选中态与图标可见，本地相对图片仍然正常加载。

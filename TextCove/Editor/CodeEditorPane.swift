@@ -5,6 +5,9 @@ struct CodeEditorPane: View {
     let fileURL: URL
     let colorScheme: ColorScheme
     let showsLineNumbers: Bool
+    let isEditable: Bool
+    let wrapsLines: Bool
+    let externalEditToken: Int
     let onOpenFiles: ([URL]) -> Void
 
     @StateObject private var viewport = EditorViewport()
@@ -26,6 +29,9 @@ struct CodeEditorPane: View {
                 fileURL: fileURL,
                 colorScheme: colorScheme,
                 viewport: viewport,
+                isEditable: isEditable,
+                wrapsLines: wrapsLines,
+                externalEditToken: externalEditToken,
                 onOpenFiles: onOpenFiles
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)

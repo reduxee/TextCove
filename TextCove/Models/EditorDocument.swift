@@ -1,6 +1,11 @@
 import Combine
 import Foundation
 
+enum TextFileLimits {
+    /// 超长行阈值：超过就改用只读折行预览，避免 TextKit 为单行几百万字符做全量排版。
+    static let longLineThreshold = 50_000
+}
+
 enum MarkdownMode: String, CaseIterable, Identifiable {
     case edit = "编辑"
     case preview = "预览"
@@ -34,12 +39,22 @@ final class EditorDocument: ObservableObject, Identifiable {
     let fileURL: URL
     let kind: FileKind
 
-    @Published var text = ""
-    @Published private(set) var savedText = ""
+    @Published var text = "" {
+        didSet { revision &+= 1 }
+    }
     @Published private(set) var loadState: LoadState
     @Published private(set) var sourceEncoding: String.Encoding = .utf8
     @Published private(set) var encodingLabel = "UTF-8"
+    @Published private(set) var longestLineLength = 0
+    @Published private(set) var wrappedPreview = ""
+    @Published var prefersEditingLongLineFile = false
     @Published var markdownMode: MarkdownMode = .preview
+
+    /// 只有加载、格式化这类“外部文本”才会推进；编辑器据此决定是否覆盖自身内容，
+    /// 避免每次更新都拿 9MB 字符串做比较（桥接字符串比较会走 NFC 归一化，单次可达数百毫秒）。
+    private(set) var externalEditToken = 0
+    private(set) var revision = 0
+    @Published private var savedRevision = 0
 
     private var loadTask: Task<Void, Never>?
     private var strippedBOM = Data()
@@ -56,7 +71,7 @@ final class EditorDocument: ObservableObject, Identifiable {
     var directoryURL: URL { fileURL.deletingLastPathComponent() }
 
     var isDirty: Bool {
-        loadState == .loaded && text != savedText
+        loadState == .loaded && revision != savedRevision
     }
 
     var canSave: Bool {
@@ -71,6 +86,14 @@ final class EditorDocument: ObservableObject, Identifiable {
         name + (isDirty ? " *" : "")
     }
 
+    var isLongLineHeavy: Bool {
+        loadState == .loaded && longestLineLength >= TextFileLimits.longLineThreshold
+    }
+
+    var showsWrappedPreview: Bool {
+        isLongLineHeavy && !prefersEditingLongLineFile
+    }
+
     func load() {
         guard loadState != .loaded else { return }
 
@@ -78,7 +101,8 @@ final class EditorDocument: ObservableObject, Identifiable {
         loadState = .loading
         let url = fileURL
         text = ""
-        savedText = ""
+        longestLineLength = 0
+        wrappedPreview = ""
 
         loadTask = Task { [weak self] in
             let result = await Task.detached(priority: .userInitiated) {
@@ -90,7 +114,10 @@ final class EditorDocument: ObservableObject, Identifiable {
             switch result {
             case .success(let content):
                 self.text = content.text
-                self.savedText = content.text
+                self.savedRevision = self.revision
+                self.externalEditToken &+= 1
+                self.longestLineLength = content.longestLine
+                self.wrappedPreview = content.wrappedPreview
                 self.sourceEncoding = content.encoding
                 self.encodingLabel = content.label
                 self.strippedBOM = content.bom
@@ -118,12 +145,12 @@ final class EditorDocument: ObservableObject, Identifiable {
         }
 
         try data.write(to: fileURL, options: .atomic)
-        savedText = text
+        savedRevision = revision
     }
 
     func replaceText(with newText: String) {
-        guard text != newText else { return }
         text = newText
+        externalEditToken &+= 1
     }
 }
 
@@ -132,6 +159,8 @@ private struct TextFileContent: Sendable {
     let encoding: String.Encoding
     let label: String
     let bom: Data
+    let longestLine: Int
+    let wrappedPreview: String
 }
 
 private enum TextFileReadResult: Sendable {
@@ -157,12 +186,12 @@ private enum TextFileReader {
         }
 
         if data.isEmpty {
-            return .success(TextFileContent(text: "", encoding: .utf8, label: "UTF-8", bom: Data()))
+            return success("", encoding: .utf8, label: "UTF-8", bom: Data())
         }
 
         // UTF-16/UTF-32 靠 BOM 识别；识别不了再按“含 NUL 即二进制”处理。
         if let wide = decodeWide(data) {
-            return .success(wide)
+            return success(wide.0, encoding: wide.1, label: wide.2, bom: wide.3)
         }
 
         if data.contains(0) {
@@ -177,7 +206,7 @@ private enum TextFileReader {
         }
 
         if let content = String(data: payload, encoding: .utf8) {
-            return .success(TextFileContent(text: content, encoding: .utf8, label: "UTF-8", bom: bom))
+            return success(content, encoding: .utf8, label: "UTF-8", bom: bom)
         }
 
         // 非 UTF-8 时按“严格编码优先、无损单字节编码兜底”的顺序回退。
@@ -187,7 +216,7 @@ private enum TextFileReader {
         )
         if let content = String(data: payload, encoding: gbk),
            content.unicodeScalars.contains(where: { $0.value >= 0x4E00 && $0.value <= 0x9FFF }) {
-            return .success(TextFileContent(text: content, encoding: gbk, label: "GBK", bom: bom))
+            return success(content, encoding: gbk, label: "GBK", bom: bom)
         }
 
         let singleByte: [(String.Encoding, String)] = [
@@ -196,24 +225,79 @@ private enum TextFileReader {
         ]
         for (encoding, label) in singleByte {
             if let content = String(data: payload, encoding: encoding) {
-                return .success(TextFileContent(text: content, encoding: encoding, label: label, bom: bom))
+                return success(content, encoding: encoding, label: label, bom: bom)
             }
         }
 
         return .failure("无法解码该文件。请先将文件转换为 UTF-8 编码后重试。")
     }
 
-    private static func decodeWide(_ data: Data) -> TextFileContent? {
+    private static func decodeWide(_ data: Data) -> (String, String.Encoding, String, Data)? {
         if data.starts(with: [0xFF, 0xFE, 0x00, 0x00]), let text = String(data: data, encoding: .utf32) {
-            return TextFileContent(text: text, encoding: .utf32, label: "UTF-32", bom: Data())
+            return (text, .utf32, "UTF-32", Data())
         }
         if data.starts(with: [0x00, 0x00, 0xFE, 0xFF]), let text = String(data: data, encoding: .utf32BigEndian) {
-            return TextFileContent(text: text, encoding: .utf32BigEndian, label: "UTF-32 BE", bom: Data())
+            return (text, .utf32BigEndian, "UTF-32 BE", Data())
         }
         if data.starts(with: [0xFF, 0xFE]) || data.starts(with: [0xFE, 0xFF]),
            let text = String(data: data, encoding: .utf16) {
-            return TextFileContent(text: text, encoding: .utf16, label: "UTF-16", bom: Data())
+            return (text, .utf16, "UTF-16", Data())
         }
         return nil
+    }
+
+    private static func success(
+        _ text: String,
+        encoding: String.Encoding,
+        label: String,
+        bom: Data
+    ) -> TextFileReadResult {
+        let longest = longestLineLength(in: text)
+        let preview = longest >= TextFileLimits.longLineThreshold ? wrappedPreview(text) : ""
+        return .success(
+            TextFileContent(
+                text: text,
+                encoding: encoding,
+                label: label,
+                bom: bom,
+                longestLine: longest,
+                wrappedPreview: preview
+            )
+        )
+    }
+
+    private static func longestLineLength(in text: String) -> Int {
+        var longest = 0
+        var current = 0
+        for unit in text.utf16 {
+            if unit == 10 || unit == 13 {
+                if current > longest { longest = current }
+                current = 0
+            } else {
+                current += 1
+            }
+        }
+        return max(longest, current)
+    }
+
+    /// 只读预览用：按 160 字符硬折行，把超长行拆成大量短行，TextKit 排版成本从秒级降到毫秒级。
+    private static func wrappedPreview(_ text: String, width: Int = 160) -> String {
+        var output = String()
+        output.reserveCapacity(text.utf16.count + text.utf16.count / width)
+        var column = 0
+        for character in text {
+            if character == "\n" {
+                column = 0
+                output.append(character)
+                continue
+            }
+            if column >= width {
+                output.append("\n")
+                column = 0
+            }
+            output.append(character)
+            column += 1
+        }
+        return output
     }
 }
