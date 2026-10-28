@@ -5,6 +5,7 @@ struct DocumentContainerView: View {
     let onOpenFiles: ([URL]) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @State private var hugeFileIndexProgress: Double = 0
 
     /// 与 macOS 自身内容面板一致的连续曲率圆角。
     private static let cardCornerRadius: CGFloat = 10
@@ -55,7 +56,9 @@ struct DocumentContainerView: View {
             loadingView
         case .loaded:
             if document.isHugeFile {
-                HugeFileView(url: document.fileURL, colorScheme: colorScheme)
+                HugeFileView(url: document.fileURL, colorScheme: colorScheme) { fraction in
+                    hugeFileIndexProgress = fraction
+                }
             } else if document.kind.isMarkdown && document.markdownMode == .preview {
                 MarkdownPreviewView(
                     markdown: document.text,
@@ -99,7 +102,18 @@ struct DocumentContainerView: View {
     private var hugeFileNotice: some View {
         HStack(spacing: 8) {
             Image(systemName: "doc.text.magnifyingglass")
-            Text("\(ByteCountFormatter.string(fromByteCount: document.fileSize, countStyle: .file)) · 只读分页查看 · SQL 关键字着色 · 不支持编辑与全文搜索")
+            Text("\(ByteCountFormatter.string(fromByteCount: document.fileSize, countStyle: .file)) · 只读分页查看")
+
+            if hugeFileIndexProgress < 1 {
+                ProgressView(value: hugeFileIndexProgress)
+                    .progressViewStyle(.linear)
+                    .frame(width: 80)
+                Text("正在建立行索引 \(Int(hugeFileIndexProgress * 100))%")
+                    .monospacedDigit()
+            } else {
+                Text("SQL 关键字着色 · 不支持编辑与全文搜索")
+            }
+
             Spacer()
         }
         .font(.system(size: 11))

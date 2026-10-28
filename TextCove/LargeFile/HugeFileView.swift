@@ -5,9 +5,14 @@ import SwiftUI
 struct HugeFileView: NSViewRepresentable {
     let url: URL
     let colorScheme: ColorScheme
+    let onProgress: (Double) -> Void
 
     func makeNSView(context: Context) -> HugeFileTextView {
-        HugeFileTextView(url: url, colorScheme: colorScheme)
+        let view = HugeFileTextView(url: url, colorScheme: colorScheme)
+        view.onProgress = { fraction in
+            DispatchQueue.main.async { onProgress(fraction) }
+        }
+        return view
     }
 
     func updateNSView(_ nsView: HugeFileTextView, context: Context) {
@@ -41,6 +46,10 @@ final class HugeFileTextView: NSView {
     private var selectionFocus: Int?
 
     private var lineCache: [Int: NSAttributedString] = [:]
+    private var progress: Double = 0
+    var onProgress: ((Double) -> Void)? {
+        didSet { onProgress?(progress) }
+    }
     private let scroller = NSScroller()
     private var totalLines = 0
 
@@ -56,6 +65,11 @@ final class HugeFileTextView: NSView {
             super.init(frame: .zero)
 
             lineHeight = ceil(lineFont.ascender - lineFont.descender) + 4
+            mapped.onIndexProgress = { [weak self] fraction in
+                guard let self else { return }
+                self.progress = fraction
+                self.onProgress?(fraction)
+            }
             mapped.onIndexFinished = { [weak self] count in
                 guard let self else { return }
                 self.totalLines = count
@@ -152,18 +166,6 @@ final class HugeFileTextView: NSView {
             row += 1
         }
 
-        if !file.indexComplete {
-            let hint = "正在建立索引…" as NSString
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 10),
-                .foregroundColor: theme.comment
-            ]
-            let size = hint.size(withAttributes: attributes)
-            hint.draw(
-                at: NSPoint(x: bounds.width - size.width - 24, y: bounds.height - size.height - 10),
-                withAttributes: attributes
-            )
-        }
     }
 
     private func drawRow(line: Int, offset: Int, y: CGFloat, textLeft: CGFloat) {

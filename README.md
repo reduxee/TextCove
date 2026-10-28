@@ -11,6 +11,7 @@ TextCove 是一款使用 SwiftUI 编写的 macOS 原生多标签文件查看与�
 - 自定义白底 App 图标：深色文档轮廓 + 两条文本线 + 蓝色 Cove 曲线。
 - 原生工具栏：打开文件、保存、格式化；1.2 版新增编辑器行号、预览代码块行号与任意文本打开。
 - 1.2.2 修复了行号导致编辑器正文不可见的问题：行号改为 SwiftUI 外层的独立侧栏，不再向 NSScrollView 内注入任何行号视图。
+- 1.5.1 超大文件进度：说明栏显示确定进度条（「正在建立行索引 42%」），索引完成后切换为常规提示；进度通过 `onIndexProgress` 每 2% 回调一次。
 - 1.5.0 超大文件：>64 MB 的文件不再整份读入内存，改用 mmap 只读分页查看器——1.12 GB / 521 万行的 SQL dump 首帧约 12 ms，常驻内存约 100 MB；支持行号、SQL 关键字着色、滚轮/翻页/拖动定位与复制行，不提供编辑与全文搜索。
 - 1.4.1 性能：修复打开 / 关闭大文件（如 8.7 MB、20 万行）时的秒级卡顿。根因是拿 `NSTextView.string` 的桥接字符串做整串比较，一次约 650 ms；改为版本号 / token / 长度等 O(1) 判据后，打开从约 2.6 s 降到约 0.5 s、关闭约 1 ms。超长行文件（压缩产物）自动改为只读折行预览，行号扫描移到后台。
 - 1.4.0 界面调整：去掉 Tab 栏下方的分隔线，正文收进 10pt 连续曲率的圆角卡片，Markdown 的编辑 / 预览切换改为右下角毛玻璃悬浮图标。
@@ -31,9 +32,9 @@ TextCove 是一款使用 SwiftUI 编写的 macOS 原生多标签文件查看与�
 
 已经生成可直接使用的产物：
 
-- `dist/TextCove.app`：1.5.0 Release 版应用，已进行本机 ad-hoc 签名，通用二进制（arm64 + x86_64）。
-- `dist/TextCove-1.5.0-macOS.zip`：约 19 MB。
-- `dist/TextCove-1.5.0-macOS.dmg`：约 24 MB 的安装镜像。
+- `dist/TextCove.app`：1.5.1 Release 版应用，已进行本机 ad-hoc 签名，通用二进制（arm64 + x86_64）。
+- `dist/TextCove-1.5.1-macOS.zip`：约 19 MB。
+- `dist/TextCove-1.5.1-macOS.dmg`：约 24 MB 的安装镜像。
 
 在自己电脑上使用只需：
 
@@ -41,7 +42,7 @@ TextCove 是一款使用 SwiftUI 编写的 macOS 原生多标签文件查看与�
 2. 将 `TextCove.app` 拖到“应用程序”文件夹。
 3. 双击打开。由于没有 Apple Developer ID 证书，这是用于本机自用的 ad-hoc 签名版本，不需要也不应提交 App Store。
 
-之前安装过旧版的话，先退出旧版，再用 1.5.0 覆盖 `/Applications/TextCove.app`。1.3.x 新增了 Vue、更多语言与文档类型声明，并修复了非 Markdown 文件打开时 Tab 栏不显示的问题，需要重新安装、并让 LaunchServices 重新登记后才会生效：
+之前安装过旧版的话，先退出旧版，再用 1.5.1 覆盖 `/Applications/TextCove.app`。1.3.x 新增了 Vue、更多语言与文档类型声明，并修复了非 Markdown 文件打开时 Tab 栏不显示的问题，需要重新安装、并让 LaunchServices 重新登记后才会生效：
 
 ```bash
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister \
@@ -130,7 +131,7 @@ xcodebuild \
    - `ENABLE_APP_SANDBOX = NO`
    - `PRODUCT_BUNDLE_IDENTIFIER = com.textcove.TextCove`
    - `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`
-   - `MARKETING_VERSION = 1.5.0`
+   - `MARKETING_VERSION = 1.5.1`
 8. 在 `Info.plist` 中加入 `CFBundleDocumentTypes`，声明常用代码、plist 及通用文本的 UTI 与扩展名，并加入 `AppDelegate` 的 `application(_:open:)` 处理。
 9. 运行工程。最小窗口限制由 `ContentView` 的 `frame(minWidth:minHeight:)` 配合 `.windowResizability(.contentMinSize)` 实现。
 
@@ -178,8 +179,8 @@ TextCove/
 │       └── xcshareddata/swiftpm/Package.resolved
 ├── dist/
 │   ├── TextCove.app
-│   ├── TextCove-1.5.0-macOS.zip
-│   └── TextCove-1.5.0-macOS.dmg
+│   ├── TextCove-1.5.1-macOS.zip
+│   └── TextCove-1.5.1-macOS.dmg
 ├── Config/
 │   └── Info.plist
 └── TextCove/
@@ -311,6 +312,7 @@ TextCove/
 - `MappedTextFile` 用 `mmap(MAP_PRIVATE)` 只读映射文件，绘制时按字节范围取行，不建 `String`、不建 `NSTextStorage`。1.12 GB 文件的 `mmap` + 首帧约 12 ms。
 - 行定位用「每 1024 行一个锚点」的稀疏索引：全文件约 5,100 条、几十 KB；跳转时锚点二分 + 块内扫描，1/3 处定位耗时 <1 ms。
 - 索引在后台用 `pread` 读 1 MB 块扫描换行，**不用 mmap 扫全文件**——否则 1.12 GB 的页缓存会全部计入进程常驻内存（实测 RSS 会涨到 2.3 GB）。扫描结束后再 `madvise(MADV_DONTNEED)` 把零星触碰的映射页还给系统，常驻稳定在约 100 MB。
+- 索引进度通过 `onIndexProgress`（每 2% 一次，主线程）回传给 SwiftUI，在说明栏显示 `ProgressView` 与百分比；索引完成后自动切换成常规说明。
 - `HugeFileView` 是自绘 `NSView`：只画可见的几十行，行号在左侧 gutter，垂直滚动由 `NSScroller` 手动映射到字节偏移，不创建「500 万行 × 行高」的巨型 documentView。滚轮/触控板惯性、PageUp/Down、Home/End、⌘C 复制选中行均可用。
 - 着色只在可见行上做：`SQLLineTokenizer` 把单行切成关键字 / 字符串 / 数字 / 注释 / 反引号标识符，按主题上色，单帧 40 行约 2.7 ms。
 - 单行超过 4,000 字符时截断显示并标注，避免个别超长 INSERT 拖慢绘制。
@@ -347,7 +349,7 @@ TextCove/
 ## 验证记录
 
 - 使用相同版本依赖完成 Debug 与 Release 构建（Xcode 27.1，arm64）。
-- Release 产物已接入白底 AppIcon，完成 ad-hoc 签名与启动验证；已生成 1.5.0 的 zip 与 DMG。
+- Release 产物已接入白底 AppIcon，完成 ad-hoc 签名与启动验证；已生成 1.5.1 的 zip 与 DMG。
 - 已通过 LaunchServices 端到端验证：向测试包发送 `readme.md` 打开事件后，应用成功创建并显示对应 Tab。
 - 已在系统 LaunchServices 中看到 TextCove 注册的 Markdown、JS、TS、HTML、CSS、Java、C、Swift、YAML、JSON、plist 与通用文本类型。
 - tree-sitter 探针覆盖 md/js/html/css/java/yml/json；C、Swift、TypeScript 通过文件 URL 自动匹配 grammar。新增 `.ts`、`.plist`、`.txt` 已在验证工程中成功打开并显示行号。
@@ -372,6 +374,8 @@ TextCove/
 - 实测：mmap + 视图创建 15 ms，首帧 12 ms，后台索引 0.4–0.5 s（页缓存热），常驻内存 33 MB → 约 100 MB 后稳定；滚动重绘 40 行约 2.7 ms；定位到 1/3 处 <1 ms。
 - 真实 App 端到端：`open -n -a TextCove.app dump.sql` 后 3 s 内 RSS 112 MB，索引完成后 CPU 归零。
 - 过程中修正两个问题：稀疏索引内层把「相对偏移」当绝对位置导致死循环；用 mmap 建索引会让 RSS 涨到 2.3 GB（改为 `pread` + `madvise`）。
+
+- 1.5.1 补充验证：`onIndexProgress` 回调 51 次（2%→100%，单调递增），索引 737 ms 内完成；说明栏进度条随之后切为完成态。
 
 ### 1.4.1 大文件性能验证
 

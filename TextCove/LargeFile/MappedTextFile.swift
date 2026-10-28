@@ -35,6 +35,8 @@ final class MappedTextFile {
     private(set) var indexComplete = false
     /// 索引完成（主线程回调），参数为总行数
     var onIndexFinished: ((Int) -> Void)?
+    /// 索引进度 0...1（主线程回调）
+    var onIndexProgress: ((Double) -> Void)?
 
     private static let anchorStride = 1024
 
@@ -175,6 +177,7 @@ final class MappedTextFile {
             var line = 0
             var offset = 0
             var lastYield = 0
+            var reportedProgress = 0.0
 
             // 用 pread 逐块扫描：不建立额外映射，进程 RSS 不会随文件大小增长
             while offset < self.size {
@@ -204,6 +207,13 @@ final class MappedTextFile {
                 }
 
                 offset += read
+
+                let fraction = Double(offset) / Double(max(1, self.size))
+                if fraction - reportedProgress >= 0.02 || fraction >= 1 {
+                    reportedProgress = fraction
+                    DispatchQueue.main.async { self.onIndexProgress?(min(1, fraction)) }
+                }
+
                 if offset - lastYield >= 128 * 1024 * 1024 {
                     lastYield = offset
                     Thread.sleep(forTimeInterval: 0.01)
@@ -222,6 +232,7 @@ final class MappedTextFile {
                 self.lock.unlock()
                 self.totalLines = total
                 self.indexComplete = true
+                self.onIndexProgress?(1)
                 self.onIndexFinished?(total)
             }
         }
