@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0248D2E4CCF71804018C6200 /* MarkdownPreviewStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCC5742685DF86EB2C530578 /* MarkdownPreviewStyles.swift */; };
+		05B5B4ED5121BBF272806E9C /* MappedTextFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DC40687A8D25C2A46C92AA2 /* MappedTextFile.swift */; };
 		07130F1905CDF2420909F588 /* EmptyWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BB66F09612951E956B7DA9 /* EmptyWorkspaceView.swift */; };
 		08CB72635EF446808F6CA66B /* markdown-it.min.js in Resources */ = {isa = PBXBuildFile; fileRef = BDAE549F07EAC4CC2D742286 /* markdown-it.min.js */; };
 		0D0DF3B218B0B5ECFE93C9C3 /* EditorDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A1AB1A93C9460128443693 /* EditorDocument.swift */; };
@@ -23,6 +24,7 @@
 		6A49DF5B61F6375B54F231A0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCFEB65AE53E3AB300C0896E /* AppDelegate.swift */; };
 		6FBC2D28FA0D8CEB7A393452 /* SyntaxHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10A2A3C6098B2592268BD30A /* SyntaxHighlighter.swift */; };
 		7740C1493C8091005C6CEA66 /* THIRD_PARTY_NOTICES.txt in Resources */ = {isa = PBXBuildFile; fileRef = 5946DAB93AA812F3CF140373 /* THIRD_PARTY_NOTICES.txt */; };
+		77EEC76B589D4776C940B4AC /* HugeFileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCB71A0356BBB027953C63B /* HugeFileView.swift */; };
 		82E8A467BAFA5035370A20FC /* DocumentTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1B2956A796063151DCE488 /* DocumentTabBar.swift */; };
 		8AECA101FCD1948F49C576DD /* EditorViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AEFE7A9FBB03494E7A2E5F4 /* EditorViewport.swift */; };
 		99F76F3DF5947EADB399B0F0 /* CodeEditorPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D72FFE13C1FE687290AFB085 /* CodeEditorPane.swift */; };
@@ -36,6 +38,7 @@
 		BE3D91ED50D92ED846C5593F /* VueHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31F04E740693C7CE69CBD7A /* VueHighlighter.swift */; };
 		CA438EF7C9B69B82417A8CDE /* CodeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E9E9C870F16E8C2AF46C9D /* CodeEditorView.swift */; };
 		D180E6EAE2A81EA0BE650634 /* CodeTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8EF13006484F9741B5AE814 /* CodeTextView.swift */; };
+		D1D3998B76F541EC70A7D46A /* SQLLineTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8789D9CED17751ED22116E0D /* SQLLineTokenizer.swift */; };
 		D2CC4D7366A43F3BD55C822E /* TextCoveCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45409F8795DA37771EDEE494 /* TextCoveCommands.swift */; };
 		DA51EDF6AF78BF1C83642956 /* JSONFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C38D00687B456886ACF76E4 /* JSONFormatter.swift */; };
 		E11CC2E3657B9097BC5D6021 /* CodeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEDFFA21F1CE270E31BA1EC5 /* CodeFormatter.swift */; };
@@ -50,6 +53,7 @@
 		04A1110C915A66E7B33EC0E2 /* RegexHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegexHighlighter.swift; sourceTree = "<group>"; };
 		09E76A8180211C217330CE0F /* beautify-js.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "beautify-js.js"; sourceTree = "<group>"; };
 		0D752E4EC81F2F4E3BB556F1 /* MarkdownHTMLRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownHTMLRenderer.swift; sourceTree = "<group>"; };
+		0DC40687A8D25C2A46C92AA2 /* MappedTextFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MappedTextFile.swift; sourceTree = "<group>"; };
 		10A2A3C6098B2592268BD30A /* SyntaxHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntaxHighlighter.swift; sourceTree = "<group>"; };
 		13E9E9C870F16E8C2AF46C9D /* CodeEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeEditorView.swift; sourceTree = "<group>"; };
 		1AEFE7A9FBB03494E7A2E5F4 /* EditorViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewport.swift; sourceTree = "<group>"; };
@@ -61,7 +65,9 @@
 		45409F8795DA37771EDEE494 /* TextCoveCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextCoveCommands.swift; sourceTree = "<group>"; };
 		5946DAB93AA812F3CF140373 /* THIRD_PARTY_NOTICES.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = THIRD_PARTY_NOTICES.txt; sourceTree = "<group>"; };
 		66BEA0FFA00F87AA85B914CC /* EditorTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTheme.swift; sourceTree = "<group>"; };
+		6CCB71A0356BBB027953C63B /* HugeFileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HugeFileView.swift; sourceTree = "<group>"; };
 		81FB52031F428B467972E12F /* FileKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileKind.swift; sourceTree = "<group>"; };
+		8789D9CED17751ED22116E0D /* SQLLineTokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLLineTokenizer.swift; sourceTree = "<group>"; };
 		8B9DD66BA8476FB9D8B1FCFC /* LocalAssetSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAssetSchemeHandler.swift; sourceTree = "<group>"; };
 		9C014D861EB34A779285CECE /* LineNumberSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineNumberSidebar.swift; sourceTree = "<group>"; };
 		A5A90DEDB04A7B6CC8EE1C8F /* beautify-html.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "beautify-html.js"; sourceTree = "<group>"; };
@@ -148,6 +154,7 @@
 				FB8DD5434BEFCD94325B0146 /* App */,
 				C42CADC50FA6095E6FD3A3CF /* Editor */,
 				F95E958332EFECC500518723 /* Formatting */,
+				B297FD50D3C838D9A344E538 /* LargeFile */,
 				65BBCCB1D2C412C6090DF623 /* Markdown */,
 				C1C2C101F7BFE518167028D3 /* Models */,
 				C74E867179EFBA158A252A94 /* Resources */,
@@ -155,6 +162,16 @@
 				8FF3E3CDFD907CE4B40F0C02 /* Views */,
 			);
 			path = TextCove;
+			sourceTree = "<group>";
+		};
+		B297FD50D3C838D9A344E538 /* LargeFile */ = {
+			isa = PBXGroup;
+			children = (
+				6CCB71A0356BBB027953C63B /* HugeFileView.swift */,
+				0DC40687A8D25C2A46C92AA2 /* MappedTextFile.swift */,
+				8789D9CED17751ED22116E0D /* SQLLineTokenizer.swift */,
+			);
+			path = LargeFile;
 			sourceTree = "<group>";
 		};
 		C1C2C101F7BFE518167028D3 /* Models */ = {
@@ -311,13 +328,16 @@
 				07130F1905CDF2420909F588 /* EmptyWorkspaceView.swift in Sources */,
 				BD8F28C1EC380080A52072AC /* FileDropLoader.swift in Sources */,
 				1756BA34C449AE98CA20E751 /* FileKind.swift in Sources */,
+				77EEC76B589D4776C940B4AC /* HugeFileView.swift in Sources */,
 				DA51EDF6AF78BF1C83642956 /* JSONFormatter.swift in Sources */,
 				53B3AD237BB80D434C5AE0D7 /* LineNumberSidebar.swift in Sources */,
 				9E0C9AFA13967F08218B06AC /* LocalAssetSchemeHandler.swift in Sources */,
+				05B5B4ED5121BBF272806E9C /* MappedTextFile.swift in Sources */,
 				B5CC6715C92BFCFB260B3E5B /* MarkdownHTMLRenderer.swift in Sources */,
 				0248D2E4CCF71804018C6200 /* MarkdownPreviewStyles.swift in Sources */,
 				B1E8CC10C9F3B346C9D3CFBF /* MarkdownPreviewView.swift in Sources */,
 				13773EF4F502115486505271 /* RegexHighlighter.swift in Sources */,
+				D1D3998B76F541EC70A7D46A /* SQLLineTokenizer.swift in Sources */,
 				6FBC2D28FA0D8CEB7A393452 /* SyntaxHighlighter.swift in Sources */,
 				0D1E36711977BBB77E068B39 /* TextCoveApp.swift in Sources */,
 				D2CC4D7366A43F3BD55C822E /* TextCoveCommands.swift in Sources */,
@@ -335,7 +355,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -345,7 +365,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.4.1;
+				MARKETING_VERSION = 1.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.textcove.TextCove;
 				PRODUCT_NAME = TextCove;
 				SDKROOT = macosx;
@@ -358,7 +378,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -368,7 +388,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.4.1;
+				MARKETING_VERSION = 1.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.textcove.TextCove;
 				PRODUCT_NAME = TextCove;
 				SDKROOT = macosx;

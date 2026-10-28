@@ -11,7 +11,9 @@ struct DocumentContainerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if document.encodingLabel != "UTF-8" {
+            if document.isHugeFile {
+                hugeFileNotice
+            } else if document.encodingLabel != "UTF-8" {
                 encodingNotice
             }
             if document.isLongLineHeavy {
@@ -52,7 +54,9 @@ struct DocumentContainerView: View {
         case .loading:
             loadingView
         case .loaded:
-            if document.kind.isMarkdown && document.markdownMode == .preview {
+            if document.isHugeFile {
+                HugeFileView(url: document.fileURL, colorScheme: colorScheme)
+            } else if document.kind.isMarkdown && document.markdownMode == .preview {
                 MarkdownPreviewView(
                     markdown: document.text,
                     baseURL: document.directoryURL,
@@ -90,6 +94,18 @@ struct DocumentContainerView: View {
 
     private var editorText: Binding<String> {
         document.showsWrappedPreview ? .constant(document.wrappedPreview) : $document.text
+    }
+
+    private var hugeFileNotice: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "doc.text.magnifyingglass")
+            Text("\(ByteCountFormatter.string(fromByteCount: document.fileSize, countStyle: .file)) · 只读分页查看 · SQL 关键字着色 · 不支持编辑与全文搜索")
+            Spacer()
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
     }
 
     private var longLineNotice: some View {

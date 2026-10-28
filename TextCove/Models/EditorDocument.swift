@@ -4,6 +4,8 @@ import Foundation
 enum TextFileLimits {
     /// 超长行阈值：超过就改用只读折行预览，避免 TextKit 为单行几百万字符做全量排版。
     static let longLineThreshold = 50_000
+    /// 超过这个大小直接走 mmap 只读查看器，不再整份读入内存。
+    static let hugeFileThreshold: Int64 = 64 * 1024 * 1024
 }
 
 enum MarkdownMode: String, CaseIterable, Identifiable {
@@ -38,6 +40,7 @@ final class EditorDocument: ObservableObject, Identifiable {
     let id = UUID()
     let fileURL: URL
     let kind: FileKind
+    let fileSize: Int64
 
     @Published var text = "" {
         didSet { revision &+= 1 }
@@ -63,6 +66,10 @@ final class EditorDocument: ObservableObject, Identifiable {
         let standardizedURL = fileURL.standardizedFileURL
         self.fileURL = standardizedURL
         self.kind = FileKind(fileURL: standardizedURL)
+
+        let attributes = try? FileManager.default.attributesOfItem(atPath: standardizedURL.path)
+        self.fileSize = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+
         self.loadState = .loading
     }
 
@@ -79,7 +86,12 @@ final class EditorDocument: ObservableObject, Identifiable {
     }
 
     var canFormat: Bool {
-        kind.supportsFormatting && loadState == .loaded
+        !isHugeFile && kind.supportsFormatting && loadState == .loaded
+    }
+
+    /// 超过 64MB 走只读 mmap 查看器：不读入内存、不可编辑、不高亮、不可格式化。
+    var isHugeFile: Bool {
+        fileSize >= TextFileLimits.hugeFileThreshold
     }
 
     var displayTitle: String {
@@ -96,6 +108,14 @@ final class EditorDocument: ObservableObject, Identifiable {
 
     func load() {
         guard loadState != .loaded else { return }
+
+        if isHugeFile {
+            text = ""
+            longestLineLength = 0
+            wrappedPreview = ""
+            loadState = .loaded
+            return
+        }
 
         loadTask?.cancel()
         loadState = .loading
