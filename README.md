@@ -374,9 +374,9 @@ TextCove/
 - Release 通用二进制（arm64 + x86_64）构建成功；ad-hoc 签名后用 `open -n -a` 同时打开 `App.vue` 与 `schema.graphql`，进程稳定存活；已 `lsregister -f` 重新登记 15 组文档类型。
 ### 1.5.0 超大文件查看器验证
 
-- 目标文件：`~/Desktop/dump.sql`，1.12 GB / 5,217,685 行 / CRLF / UTF-8 / 最长行 33,162 字节。
+- 目标文件：一个 1.12 GB 的 Navicat MySQL dump（5,217,685 行、CRLF、UTF-8、最长行 33,162 字节）。
 - 实测：mmap + 视图创建 15 ms，首帧 12 ms，后台索引 0.4–0.5 s（页缓存热），常驻内存 33 MB → 约 100 MB 后稳定；滚动重绘 40 行约 2.7 ms；定位到 1/3 处 <1 ms。
-- 真实 App 端到端：`open -n -a TextCove.app dump.sql` 后 3 s 内 RSS 112 MB，索引完成后 CPU 归零。
+- 真实 App 端到端：用 `open -n -a TextCove.app <dump.sql>` 打开该文件，3 s 内 RSS 112 MB，索引完成后 CPU 归零。
 - 过程中修正两个问题：稀疏索引内层把「相对偏移」当绝对位置导致死循环；用 mmap 建索引会让 RSS 涨到 2.3 GB（改为 `pread` + `madvise`）。
 
 - 1.5.2 补充验证：长行折行（3,000 字符 INSERT 折成多行、无右缘截断）、拖选/⌘C 复制（剪贴板内容为完整原始行）、进度浮层（0.12 s 时截到「26% + 进度条」）；滚动 30 帧平均 1.36 ms/帧。
